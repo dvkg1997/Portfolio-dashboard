@@ -148,7 +148,7 @@ if run_btn:
 
     # Efficient Frontier
     w_mc = np.random.dirichlet(np.ones(num_assets) * d_alpha, 10000)
-    mc_rets = np.sum(mean_ret * w_mc, axis=1)
+    mc_rets = mc_rets = w_mc @ mean_ret
     mc_vols = np.array([np.sqrt(np.dot(w.T, np.dot(cov_mat, w))) for w in w_mc])
 
     fig = go.Figure()
@@ -167,4 +167,5 @@ if run_btn:
     # PDF Download
     pdf_b = create_pdf({"Return": f"{opt_ret * 100:.2f}%", "Risk": f"{opt_vol * 100:.2f}%", "Sharpe": opt_sharpe,
                         "CVaR": f"{cvar_99 * 100:.2f}%"}, w_df)
+
     st.download_button("📥 Download PDF Fact Sheet", pdf_b, "Report.pdf", "application/pdf")
