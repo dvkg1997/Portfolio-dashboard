@@ -71,9 +71,27 @@ with st.sidebar:
         # Fetching full list for custom selection
         @st.cache_data
         def get_all_nse_symbols():
-            url = "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
-            df = pd.read_csv(url)
-            return df['SYMBOL'].str.strip().tolist()
+                url = "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
+                
+                # These headers make the request look like it's coming from a real browser
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+                
+                try:
+                    # 1. Fetch the data using requests with a timeout
+                    response = requests.get(url, headers=headers, timeout=10)
+                    response.raise_for_status() # Check if the download was successful
+                    
+                    # 2. Use io.StringIO to turn the text into a file-like object for pandas
+                    df = pd.read_csv(io.StringIO(response.text))
+                    
+                    # 3. Clean and return symbols
+                    return df['SYMBOL'].str.strip().tolist()
+                
+                except Exception as e:
+                    st.error(f"Failed to fetch NSE data: {e}")
+                    return []
 
 
         all_symbols = get_all_nse_symbols()
@@ -257,4 +275,5 @@ if run_btn:
          "CVaR": f"{cvar_99 * 100:.2f}%"}, w_df, selected_index)
     st.download_button("📥 Download PDF Report", pdf_bytes, "Investment_Fact_Sheet.pdf", "application/pdf",
                        use_container_width=True)
+
 
