@@ -11,7 +11,7 @@ from scipy.optimize import minimize
 from fpdf import FPDF
 
 # --- CONFIGURATION ---
-st.set_page_config(layout="wide", page_title="Institutional Portfolio Engine")
+st.set_page_config(layout="wide", page_title="Portfolio Engine")
 
 INDEX_MAP = {
     # --- Broad Market Indices ---
@@ -60,24 +60,44 @@ HAVEN_MAP = {
 }
 # --- SIDEBAR ---
 with st.sidebar:
-    st.title("🎯 Parameters")
-    selected_index = st.selectbox("Universe", list(INDEX_MAP.keys()))
+    st.title("Parameters")
+
+    # NEW: Toggle between Index and Custom selection
+    mode = st.radio("Selection Mode", ["Index-Based", "Custom Portfolio"])
+
+    if mode == "Index-Based":
+        selected_index = st.selectbox("Universe", list(INDEX_MAP.keys()))
+    else:
+        # Fetching full list for custom selection
+        @st.cache_data
+        def get_all_nse_symbols():
+            url = "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
+            df = pd.read_csv(url)
+            return df['SYMBOL'].str.strip().tolist()
+
+
+        all_symbols = get_all_nse_symbols()
+        custom_tickers = st.multiselect("Select Custom Stocks", options=all_symbols, placeholder="Search Tickers...")
+        selected_index = "Custom Portfolio"  # Label for the PDF report
+
     strategy = st.radio("Goal", ["Max Sharpe", "Min Volatility", "Aggressive"])
 
     st.divider()
-    samp_size = st.slider("Stock Sample Size", 10, 60, 30)
+    # If custom mode is on, sample size is irrelevant
+    if mode == "Index-Based":
+        samp_size = st.slider("Stock Sample Size", 10, 60, 30)
+
     w_cap = st.slider("Max Weight per Stock (%)", 5, 50, 15) / 100
     rf_rate = st.number_input("Risk-Free Rate (%)", value=7.0) / 100
 
-    st.header("💎 Safe Havens")
+    st.header("Safe Havens")
     havens = st.multiselect("Add Hedges", list(HAVEN_MAP.keys()), default=["Gold (India)"])
 
-    st.header("💥 Stress Testing")
+    st.header("Stress Testing")
     stress_k = st.slider("Systemic Stress (k)", 0.0, 1.0, 0.0, 0.05)
     d_alpha = st.select_slider("Dirichlet Alpha (Dispersion)", options=[0.01, 0.05, 0.1, 1.0], value=0.05)
 
-    run_btn = st.button("🚀 EXECUTE ANALYSIS", use_container_width=True)
-
+    run_btn = st.button("EXECUTE ANALYSIS", use_container_width=True)
 
 # --- FUNCTIONS ---
 def get_stats(w, mean_ret, cov_mat, rf):
@@ -94,7 +114,7 @@ def create_pdf(kpis, weights, selected_index):
     pdf.cell(0, 10, f"Portfolio Fact Sheet: {selected_index}", ln=True, align='C')
     pdf.ln(10)
     pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 10, "1. Executive KPIs", ln=True)
+    pdf.cell(0, 10, "1. Performance Metrics", ln=True)
     pdf.set_font("Arial", '', 10)
     for k, v in kpis.items(): pdf.cell(0, 8, f"{k}: {v}", ln=True)
     pdf.ln(10)
@@ -113,13 +133,22 @@ def create_pdf(kpis, weights, selected_index):
 # --- MAIN LOGIC ---
 if run_btn:
     # A. Fetch Data
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    index_df = pd.read_csv(io.StringIO(requests.get(INDEX_MAP[selected_index], headers=headers).text))
-    symbols = [s.strip() + ".NS" for s in index_df.sample(min(samp_size, len(index_df)))['Symbol'].tolist()]
-    haven_tickers = [HAVEN_MAP[h] for h in havens]
-    all_tickers = list(set(symbols + haven_tickers + ["USDINR=X"]))
+    with st.spinner("Analyzing Financial Data..."):
+        headers = {'User-Agent': 'Mozilla/5.0'}
 
-    with st.spinner("Crunching Financial Data..."):
+        if mode == "Index-Based":
+            index_df = pd.read_csv(io.StringIO(requests.get(INDEX_MAP[selected_index], headers=headers).text))
+            symbols = [s.strip() + ".NS" for s in index_df.sample(min(samp_size, len(index_df)))['Symbol'].tolist()]
+        else:
+            if not custom_tickers:
+                st.error("Please select at least 2 stocks for custom portfolio.")
+                st.stop()
+            symbols = [s + ".NS" for s in custom_tickers]
+
+        haven_tickers = [HAVEN_MAP[h] for h in havens]
+        all_tickers = list(set(symbols + haven_tickers + ["USDINR=X"]))
+
+    with st.spinner("Analyzing Financial Data..."):
         raw_data = yf.download(all_tickers, period="1y", auto_adjust=True, progress=False)['Close']
         raw_data = raw_data.ffill().bfill()
 
@@ -183,7 +212,7 @@ if run_btn:
         cvar_99 = sim_p_rets[sim_p_rets <= np.percentile(sim_p_rets, 1)].mean()
 
     # --- DASHBOARD UI ---
-    st.header(f"💼 Analysis: {selected_index} Optimized")
+    st.header(f"Analysis: {selected_index} Optimized")
 
     k1, k2, k3, k4 = st.columns(4)
     k1.metric("Expected Return", f"{opt_ret * 100:.2f}%")
@@ -228,3 +257,4 @@ if run_btn:
          "CVaR": f"{cvar_99 * 100:.2f}%"}, w_df, selected_index)
     st.download_button("📥 Download PDF Report", pdf_bytes, "Investment_Fact_Sheet.pdf", "application/pdf",
                        use_container_width=True)
+
