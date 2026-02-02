@@ -87,7 +87,7 @@ with st.sidebar:
                     df = pd.read_csv(io.StringIO(response.text))
                     
                     # 3. Clean and return symbols
-                    return df['SYMBOL'].str.strip().tolist()
+                    return df['SYMBOL','NAME OF COMPANY'].str.strip().tolist()
                 
                 except Exception as e:
                     st.error(f"Failed to fetch NSE data: {e}")
@@ -104,8 +104,8 @@ with st.sidebar:
     # If custom mode is on, sample size is irrelevant
     if mode == "Index-Based":
         samp_size = st.slider("Stock Sample Size", 10, 60, 30)
-
-    w_cap = st.slider("Max Weight per Stock (%)", 5, 50, 15) / 100
+    w_cap_min = st.slider("Min Weight per Stock (%)", 5, 50, 1) / 100
+    w_cap_max = st.slider("Max Weight per Stock (%)", 5, 50, 10) / 100
     rf_rate = st.number_input("Risk-Free Rate (%)", value=7.0) / 100
 
     st.header("Safe Havens")
@@ -161,7 +161,7 @@ if run_btn:
             if not custom_tickers:
                 st.error("Please select at least 2 stocks for custom portfolio.")
                 st.stop()
-            symbols = [s + ".NS" for s in custom_tickers]
+            symbols = [s + ".NS" for s in custom_tickers['SYMBOL']]
 
         haven_tickers = [HAVEN_MAP[h] for h in havens]
         all_tickers = list(set(symbols + haven_tickers + ["USDINR=X"]))
@@ -203,7 +203,7 @@ if run_btn:
 
 
         res = minimize(objective, num_assets * [1. / num_assets],
-                       bounds=tuple((0, w_cap) for _ in range(num_assets)),
+                       bounds=tuple((w_cap_min, w_cap_max) for _ in range(num_assets)),
                        constraints={'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
         opt_ret, opt_vol, opt_sharpe = get_stats(res.x, mean_ret, cov_mat, rf_rate)
 
@@ -216,7 +216,7 @@ if run_btn:
             c = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1},
                  {'type': 'eq', 'fun': lambda x: np.dot(x, mean_ret) - tr})
             eff = minimize(lambda w: np.sqrt(np.dot(w.T, np.dot(cov_mat, w))),
-                           num_assets * [1. / num_assets], bounds=tuple((0, w_cap) for _ in range(num_assets)),
+                           num_assets * [1. / num_assets], bounds=tuple((w_cap_min, w_cap_max) for _ in range(num_assets)),
                            constraints=c)
             if eff.success:
                 frontier_vols.append(eff.fun)
@@ -275,5 +275,6 @@ if run_btn:
          "CVaR": f"{cvar_99 * 100:.2f}%"}, w_df, selected_index)
     st.download_button("📥 Download PDF Report", pdf_bytes, "Investment_Fact_Sheet.pdf", "application/pdf",
                        use_container_width=True)
+
 
 
