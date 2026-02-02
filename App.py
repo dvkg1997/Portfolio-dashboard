@@ -87,7 +87,7 @@ with st.sidebar:
                     df = pd.read_csv(io.StringIO(response.text))
                     
                     # 3. Clean and return symbols
-                    return df['SYMBOL','NAME OF COMPANY'].str.strip().tolist()
+                    return df['SYMBOL'].str.strip().tolist()
                 
                 except Exception as e:
                     st.error(f"Failed to fetch NSE data: {e}")
@@ -161,7 +161,7 @@ if run_btn:
             if not custom_tickers:
                 st.error("Please select at least 2 stocks for custom portfolio.")
                 st.stop()
-            symbols = [s + ".NS" for s in custom_tickers['SYMBOL']]
+            symbols = [s + ".NS" for s in custom_tickers]
 
         haven_tickers = [HAVEN_MAP[h] for h in havens]
         all_tickers = list(set(symbols + haven_tickers + ["USDINR=X"]))
@@ -275,6 +275,7 @@ if run_btn:
          "CVaR": f"{cvar_99 * 100:.2f}%"}, w_df, selected_index)
     st.download_button("📥 Download PDF Report", pdf_bytes, "Investment_Fact_Sheet.pdf", "application/pdf",
                        use_container_width=True)
+
 
 
 
