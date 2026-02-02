@@ -227,8 +227,7 @@ if run_btn:
     k3.metric("Sharpe Ratio", round(opt_sharpe, 2))
     if stress_k:
         k4.metric("99% Daily CVaR", f"{cvar_99 * 100:.2f}%")
-    else:
-        k4.metric("Systemic Stress is zero") 
+    
 
     # Efficient Frontier Chart
     # Use Dot Product for simulated returns
@@ -282,6 +281,7 @@ if run_btn:
          "CVaR": f"{cvar_99 * 100:.2f}%"}, w_df, selected_index)
     st.download_button("📥 Download PDF Report", pdf_bytes, "Investment_Fact_Sheet.pdf", "application/pdf",
                        use_container_width=True)
+
 
 
 
