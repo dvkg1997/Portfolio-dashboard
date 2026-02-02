@@ -181,7 +181,7 @@ if run_btn:
                 inr_rets = (1 + data[t].pct_change().fillna(0)) * (1 + usd_inr_rets) - 1
                 data[t] = (1 + inr_rets).cumprod()
 
-        returns_df = data.pct_change().dropna()
+        returns_df = np.log(data).diff().dropna()
         mean_ret = returns_df.mean() * 252
         cov_mat = returns_df.cov() * 252
 
@@ -281,6 +281,7 @@ if run_btn:
          "CVaR": f"{cvar_99 * 100:.2f}%"}, w_df, selected_index)
     st.download_button("📥 Download PDF Report", pdf_bytes, "Investment_Fact_Sheet.pdf", "application/pdf",
                        use_container_width=True)
+
 
 
 
