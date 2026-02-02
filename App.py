@@ -189,7 +189,8 @@ if run_btn:
         vols = np.sqrt(np.diag(cov_mat))
         corr_mat = returns_df.corr()
         stressed_corr = (1 - stress_k) * corr_mat + stress_k * np.ones_like(corr_mat)
-        cov_mat = np.outer(vols, vols) * stressed_corr
+        if stress_k:
+            cov_mat_2 = np.outer(vols, vols) * stressed_corr
 
         # D. Optimize Main Portfolio
         num_assets = len(mean_ret)
@@ -207,9 +208,39 @@ if run_btn:
                        constraints={'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
         opt_ret, opt_vol, opt_sharpe = get_stats(res.x, mean_ret, cov_mat, rf_rate)
 
-        # E. Efficient Frontier Boundary (The Black Dots)
+        
+
+        # F. Cholesky Stress Test (CVaR)
+        if stress_k:
+            L = np.linalg.cholesky(cov_mat_2 + np.eye(num_assets) * 1e-9)
+            sim_shocks = L @ np.random.normal(size=(num_assets, 10000))
+            # Portfolio simulated daily returns
+            sim_p_rets = np.dot(res.x, sim_shocks)
+            cvar_99 = sim_p_rets[sim_p_rets <= np.percentile(sim_p_rets, 1)].mean()
+
+    # --- DASHBOARD UI ---
+    st.header(f"Analysis: {selected_index} Optimized")
+
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Expected Return", f"{opt_ret * 100:.2f}%")
+    k2.metric("Portfolio Risk", f"{opt_vol * 100:.2f}%")
+    k3.metric("Sharpe Ratio", round(opt_sharpe, 2))
+    if stress_k:
+        k4.metric("99% Daily CVaR", f"{cvar_99 * 100:.2f}%")
+    else:
+        k4.metric("Systemic Stress is zero") 
+
+    # Efficient Frontier Chart
+    # Use Dot Product for simulated returns
+    w_mc = np.random.dirichlet(np.ones(num_assets) * d_alpha, 100000)
+    mc_rets = w_mc @ mean_ret
+    # Vectorized Volatility calculation
+    mc_vols = np.sqrt(np.einsum('ij,jk,ik->i', w_mc, cov_mat, w_mc))
+    mc_sharpe = (mc_rets - rf_rate) / mc_vols
+
+    # E. Efficient Frontier Boundary (The Black Dots)
         # Sweep from Min-Variance Return to Max Individual Asset Return
-        target_rets = np.linspace(mean_ret.min(), mean_ret.max(), 30)
+        target_rets = np.linspace(mc_rets.min(), mc_rets.max(), 70)
         frontier_vols = []
         valid_rets = []
         for tr in target_rets:
@@ -221,30 +252,6 @@ if run_btn:
             if eff.success:
                 frontier_vols.append(eff.fun)
                 valid_rets.append(tr)
-
-        # F. Cholesky Stress Test (CVaR)
-        L = np.linalg.cholesky(cov_mat + np.eye(num_assets) * 1e-9)
-        sim_shocks = L @ np.random.normal(size=(num_assets, 10000))
-        # Portfolio simulated daily returns
-        sim_p_rets = np.dot(res.x, sim_shocks)
-        cvar_99 = sim_p_rets[sim_p_rets <= np.percentile(sim_p_rets, 1)].mean()
-
-    # --- DASHBOARD UI ---
-    st.header(f"Analysis: {selected_index} Optimized")
-
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Expected Return", f"{opt_ret * 100:.2f}%")
-    k2.metric("Portfolio Risk", f"{opt_vol * 100:.2f}%")
-    k3.metric("Sharpe Ratio", round(opt_sharpe, 2))
-    k4.metric("99% Daily CVaR", f"{cvar_99 * 100:.2f}%")
-
-    # Efficient Frontier Chart
-    # Use Dot Product for simulated returns
-    w_mc = np.random.dirichlet(np.ones(num_assets) * d_alpha, 100000)
-    mc_rets = w_mc @ mean_ret
-    # Vectorized Volatility calculation
-    mc_vols = np.sqrt(np.einsum('ij,jk,ik->i', w_mc, cov_mat, w_mc))
-    mc_sharpe = (mc_rets - rf_rate) / mc_vols
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=mc_vols, y=mc_rets, mode='markers',
@@ -261,11 +268,11 @@ if run_btn:
     with c1:
         st.subheader("Optimal Weights")
         w_df = pd.DataFrame({'Ticker': data.columns, 'Weight': res.x * 100}).sort_values('Weight', ascending=False)
-        st.dataframe(w_df.style.format({"Weight": "{:.2f}%"}), height=450)
+        st.dataframe(w_df.style.format({"Weight": "{:.2f}%"}), height=600)
 
     with c2:
         st.subheader("Correlation Matrix (Stressed)")
-        fig_h, ax = plt.subplots(figsize=(10, 8))
+        fig_h, ax = plt.subplots(figsize=(15, 13))
         sns.heatmap(pd.DataFrame(stressed_corr, columns=data.columns, index=data.columns), cmap="RdYlBu", ax=ax)
         st.pyplot(fig_h)
 
@@ -275,6 +282,7 @@ if run_btn:
          "CVaR": f"{cvar_99 * 100:.2f}%"}, w_df, selected_index)
     st.download_button("📥 Download PDF Report", pdf_bytes, "Investment_Fact_Sheet.pdf", "application/pdf",
                        use_container_width=True)
+
 
 
 
