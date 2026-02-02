@@ -239,19 +239,19 @@ if run_btn:
     mc_sharpe = (mc_rets - rf_rate) / mc_vols
 
     # E. Efficient Frontier Boundary (The Black Dots)
-        # Sweep from Min-Variance Return to Max Individual Asset Return
-        target_rets = np.linspace(mc_rets.min(), mc_rets.max(), 70)
-        frontier_vols = []
-        valid_rets = []
-        for tr in target_rets:
-            c = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1},
-                 {'type': 'eq', 'fun': lambda x: np.dot(x, mean_ret) - tr})
-            eff = minimize(lambda w: np.sqrt(np.dot(w.T, np.dot(cov_mat, w))),
-                           num_assets * [1. / num_assets], bounds=tuple((w_cap_min, w_cap_max) for _ in range(num_assets)),
-                           constraints=c)
-            if eff.success:
-                frontier_vols.append(eff.fun)
-                valid_rets.append(tr)
+    # Sweep from Min-Variance Return to Max Individual Asset Return
+    target_rets = np.linspace(mc_rets.min(), mc_rets.max(), 70)
+    frontier_vols = []
+    valid_rets = []
+    for tr in target_rets:
+        c = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1},
+             {'type': 'eq', 'fun': lambda x: np.dot(x, mean_ret) - tr})
+        eff = minimize(lambda w: np.sqrt(np.dot(w.T, np.dot(cov_mat, w))),
+                       num_assets * [1. / num_assets], bounds=tuple((w_cap_min, w_cap_max) for _ in range(num_assets)),
+                       constraints=c)
+        if eff.success:
+            frontier_vols.append(eff.fun)
+            valid_rets.append(tr)
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=mc_vols, y=mc_rets, mode='markers',
@@ -282,6 +282,7 @@ if run_btn:
          "CVaR": f"{cvar_99 * 100:.2f}%"}, w_df, selected_index)
     st.download_button("📥 Download PDF Report", pdf_bytes, "Investment_Fact_Sheet.pdf", "application/pdf",
                        use_container_width=True)
+
 
 
 
