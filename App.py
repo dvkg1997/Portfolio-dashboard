@@ -225,8 +225,7 @@ if run_btn:
     k1.metric("Expected Return", f"{opt_ret * 100:.2f}%")
     k2.metric("Portfolio Risk", f"{opt_vol * 100:.2f}%")
     k3.metric("Sharpe Ratio", round(opt_sharpe, 2))
-    if stress_k:
-        k4.metric("99% Daily CVaR", f"{cvar_99 * 100:.2f}%")
+    k4.metric("99% Daily CVaR", f"{cvar_99 * 100:.2f}%")
     
 
     # Efficient Frontier Chart
@@ -281,6 +280,7 @@ if run_btn:
          "CVaR": f"{cvar_99 * 100:.2f}%"}, w_df, selected_index)
     st.download_button("📥 Download PDF Report", pdf_bytes, "Investment_Fact_Sheet.pdf", "application/pdf",
                        use_container_width=True)
+
 
 
 
