@@ -240,7 +240,7 @@ if run_btn:
 
     # Efficient Frontier Chart
     # Use Dot Product for simulated returns
-    w_mc = np.random.dirichlet(np.ones(num_assets) * d_alpha, 10000)
+    w_mc = np.random.dirichlet(np.ones(num_assets) * d_alpha, 100000)
     mc_rets = w_mc @ mean_ret
     # Vectorized Volatility calculation
     mc_vols = np.sqrt(np.einsum('ij,jk,ik->i', w_mc, cov_mat, w_mc))
@@ -275,6 +275,7 @@ if run_btn:
          "CVaR": f"{cvar_99 * 100:.2f}%"}, w_df, selected_index)
     st.download_button("📥 Download PDF Report", pdf_bytes, "Investment_Fact_Sheet.pdf", "application/pdf",
                        use_container_width=True)
+
 
 
 
